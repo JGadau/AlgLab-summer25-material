@@ -2,12 +2,13 @@ from data_schema import Instance, Solution
 
 
 def solve(instance: Instance) -> Solution:
-    """
-    Implement your solver for the problem here!
-    """
-    numbers = instance.numbers
+
+    # replaced numbers = instance.numbers with a sorted version
+    sorted_numbers = sorted(instance.numbers)
+
     return Solution(
-        number_a=numbers[0],
-        number_b=numbers[-1],
-        distance=abs(numbers[0] - numbers[-1]),
+        number_a=sorted_numbers[0],
+        number_b=sorted_numbers[-1],
+        distance=abs(sorted_numbers[0] - sorted_numbers[-1]),
     )
+
