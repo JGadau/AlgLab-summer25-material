@@ -31,26 +31,23 @@ def build_weighted_graph(instance: ProblemInstance) -> nx.Graph:
     """Build a NetworkX graph from the problem instance so we can use its shortest path implementation."""
     logging.info("Building weighted graph with %d nodes and %d edges", len(instance.endpoints), len(instance.connections))
     G = nx.Graph()
-
+    
     # Add all endpoints as nodes in the graph
-    for vertex in instance.endpoints:
-        G.add_node(vertex)
+    G.add_nodes_from(instance.endpoints)
 
-    # Add edges with weights to the graph
+    # ✅ Build a set of frozenset({a, b}) for quick lookup
+    edge_lookup = {
+        frozenset([edge.endpoint_a, edge.endpoint_b]): edge.distance
+        for edge in instance.connections
+    }
+
+    # ✅ Add edges directly if they exist in the lookup
     for v in instance.endpoints:
         for w in instance.endpoints:
-            if v != w:  # Ensure not to check the same node
-                # Check if there is an edge between v and w
-                if any(
-                    edge.endpoint_a == v and edge.endpoint_b == w
-                    for edge in instance.connections
-                ) or any(
-                    edge.endpoint_a == w and edge.endpoint_b == v
-                    for edge in instance.connections
-                ):
-                    # Get the weight of the edge and add it to the graph
-                    weight = get_edge_weight(instance, v, w)
-                    G.add_edge(v, w, weight=weight)
+            if v < w:  # avoids duplicates
+                edge_key = frozenset([v, w])
+                if edge_key in edge_lookup:
+                    G.add_edge(v, w, weight=edge_lookup[edge_key])
 
     return G
 
@@ -69,6 +66,10 @@ class MaxPlacementsSolver:
     def __init__(self, instance: ProblemInstance):
         self.instance = instance
         self.model = cp_model.CpModel()
+
+         # Build the graph ONCE
+        self.graph = build_weighted_graph(instance)
+        self.all_distances = dict(nx.all_pairs_dijkstra_path_length(self.graph, weight="weight"))
 
         # Create a boolean variable for each approved endpoint
         # It will be True if the (approved) endpoint is selected, False otherwise
@@ -89,10 +90,12 @@ class MaxPlacementsSolver:
         for endpoint1, endpoint2 in itertools.combinations(
             self.instance.approved_endpoints, 2
         ):
-            if (
-                distance(self.instance, endpoint1, endpoint2)
-                < self.instance.min_distance_between_placements
-            ):
+            #USE PREBUILT GRAPH
+            # Safely look up distance, defaulting to infinity if unreachable
+            dist = self.all_distances.get(endpoint1, {}).get(endpoint2, float('inf'))
+
+
+            if dist < self.instance.min_distance_between_placements:
                 self.model.Add(self.vars[endpoint1] + self.vars[endpoint2] <= 1)
 
     def _set_objective(self):
