@@ -17,22 +17,24 @@ def solve(instance: Instance) -> Solution:
             distance=0,
         )
 
-    # iterate
+    # pick two different indices from the list of numbers
     i = model.NewIntVar(0, length - 1, 'i') # creates integer variable i that can take values from 0 to n-1
     j = model.NewIntVar(0, length - 1, 'j')
-    model.Add(i != j) # constraint
+    model.Add(i != j) # constraint: no two same indices
 
-    # make variables for the numbers
+    # these variables represent numbers chosen from the list
     number_a = model.NewIntVar(min(numbers), max(numbers), 'number_a') # creates integer variable number_b that reps one value from numbers list
     number_b = model.NewIntVar(min(numbers), max(numbers), 'number_b')
+
+    #constraints: connects indices to actual numbers
     model.AddElement(i, numbers, number_a) # links number_a to numbers[i] ex. when i=2, then number_a=numbers[2]
     model.AddElement(j, numbers, number_b)
 
-    # distance between selected numbers
+    # distance between selected numbers will never be smaller than 0 and never larger than the biggest possible gap 
     distance = model.NewIntVar(0, max(numbers) - min(numbers), 'distance')
     model.AddAbsEquality(distance, number_a - number_b) # absolute value differences 
 
-    # maximize distance and solve
+    # objective: maximize distance and solve
     model.Maximize(distance)
 
     solver = cp_model.CpSolver()

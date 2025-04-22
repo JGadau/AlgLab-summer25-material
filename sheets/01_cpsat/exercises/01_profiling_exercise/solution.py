@@ -32,16 +32,16 @@ def build_weighted_graph(instance: ProblemInstance) -> nx.Graph:
     logging.info("Building weighted graph with %d nodes and %d edges", len(instance.endpoints), len(instance.connections))
     G = nx.Graph()
     
-    # Add all endpoints as nodes in the graph
+    #### Add all endpoints as nodes in the graph
     G.add_nodes_from(instance.endpoints)
 
-    # ✅ Build a set of frozenset({a, b}) for quick lookup
+    #### Build a set of frozenset({a, b}) for quick lookup
     edge_lookup = {
-        frozenset([edge.endpoint_a, edge.endpoint_b]): edge.distance
+        frozenset([edge.endpoint_a, edge.endpoint_b]): edge.distance # frozen set is a collection of elements, you cant change after creation, frozenset(["A", "B"]) is equal to frozenset(["B", "A"])
         for edge in instance.connections
     }
 
-    # ✅ Add edges directly if they exist in the lookup
+    #### Add edges directly if they exist in the lookup
     for v in instance.endpoints:
         for w in instance.endpoints:
             if v < w:  # avoids duplicates
@@ -67,7 +67,7 @@ class MaxPlacementsSolver:
         self.instance = instance
         self.model = cp_model.CpModel()
 
-         # Build the graph ONCE
+        #### Build the graph ONCE, then uses dijkstras implementation to get all shortest path distances up front
         self.graph = build_weighted_graph(instance)
         self.all_distances = dict(nx.all_pairs_dijkstra_path_length(self.graph, weight="weight"))
 
@@ -90,7 +90,7 @@ class MaxPlacementsSolver:
         for endpoint1, endpoint2 in itertools.combinations(
             self.instance.approved_endpoints, 2
         ):
-            #USE PREBUILT GRAPH
+            ####USE PREBUILT GRAPH and dont build graph every distance call
             # Safely look up distance, defaulting to infinity if unreachable
             dist = self.all_distances.get(endpoint1, {}).get(endpoint2, float('inf'))
 
