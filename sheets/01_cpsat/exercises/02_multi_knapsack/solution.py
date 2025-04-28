@@ -50,5 +50,77 @@ class MultiKnapsackSolver:
             return Solution(trucks=[])  # empty solution
         if timelimit < math.inf:
             self.solver.parameters.max_time_in_seconds = timelimit
+
+
+        ##DECISION VARIABLES##
+
+        #eaxh item in the truck needs a variable -> so created variables
+        x={} # item_idx, truck_idx keys
+
+        for i, item in enumerate(self.items):
+            for j, capacity in enumerate(self.capacities):
+                x[(i, j)] = self.model.NewBoolVar(f"x_{i}_{j}") # store created variable into x... dictionary diectly
+
+        #create one variable per truck
+        y={} 
+        y = {}
+        for j in range(len(self.capacities)):
+            y[j] = self.model.NewBoolVar(f"y_{j}")
+
+        
+
+        ##CONSTRAINTS##
+
+        #for each truck the total weight of selected items <= truck capacity (CONSTRAINT)
+        for j, capacity in enumerate(self.capacities):
+            self.model.Add(
+                sum(self.items[i].weight * x[(i,j)] for i in range(len(self.items)))
+                <=capacity
+            )
+
+        #each item can be ssigned to at most one truck (CONSTRAINT)
+        for i in range(len(self.items)):
+            self.model.Add(
+                sum(x[(i,j)] for j in range(len(self.capacities)))<= 1
+            )
+
+        # toxic constraint for each truck and each item
+        if self.activate_toxic:
+            for i, item in enumerate(self.items):
+                for j in range(len(self.capacities)):
+                    if (i, j) not in x:
+                        continue
+                    if item.toxic:
+                        self.model.Add(x[(i, j)] <= y[j])
+                    else:
+                        self.model.Add(x[(i, j)] <= 1 - y[j])
+
+
+
+        ##OBJECTIVE FUNCTION##
+
+        # objective is to maximize total values
+
+        self.model.Maximize(
+            sum(self.items[i].value * x[(i,j)] for i in range(len(self.items)) for j in range(len(self.capacities)))
+        )
+
+        ##SOLVER##
+
+        status =self.solver.Solve(self.model)
+
+        ##SOLUTION##
         # TODO: Implement me!
-        return Solution(trucks=[])  # empty solution
+
+        # create list of trucks
+        if status in (OPTIMAL, FEASIBLE):
+            trucks = [[] for _ in range(len(self.capacities))]
+            for i, item in enumerate(self.items):
+                for j in range(len(self.capacities)):
+                    if self.solver.Value(x[(i, j)]) == 1:
+                        trucks[j].append(item)
+                        break
+            return Solution(trucks=trucks)
+        else:
+            return Solution(trucks=[])# empty solution
+
