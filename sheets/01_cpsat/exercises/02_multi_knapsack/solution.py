@@ -4,6 +4,14 @@ from typing import List
 from data_schema import Instance, Item, Solution
 from ortools.sat.python.cp_model import FEASIBLE, OPTIMAL, CpModel, CpSolver
 
+# maximize cargo without exceeding trucks limits
+
+"""
+- use x[i,j] to decide if item i goes in knapsack j 
+- use y[j] to mark a knapsack as “toxic” or “non-toxic.”
+- enforce weight limits and 
+- separate toxic vs. non-toxic, 
+- maximize total value."""
 
 class MultiKnapsackSolver:
     """
@@ -54,7 +62,8 @@ class MultiKnapsackSolver:
 
         ##DECISION VARIABLES##
 
-        #eaxh item in the truck needs a variable -> so created variables
+        # eaxh item in the truck needs a variable -> so created boolean xij variables
+        # will be 1 if item i goes into knapsack j
         x={} # item_idx, truck_idx keys
 
         for i, item in enumerate(self.items):
@@ -62,6 +71,8 @@ class MultiKnapsackSolver:
                 x[(i, j)] = self.model.NewBoolVar(f"x_{i}_{j}") # store created variable into x... dictionary diectly
 
         #create one variable per truck
+        #for each knapsack j, create boolean yi
+        #later tie every item in knapsack xij to yj, so toxic items can only go into toxic trucks
         y={} 
         y = {}
         for j in range(len(self.capacities)):
@@ -91,15 +102,15 @@ class MultiKnapsackSolver:
                     if (i, j) not in x:
                         continue
                     if item.toxic:
-                        self.model.Add(x[(i, j)] <= y[j])
+                        self.model.Add(x[(i, j)] <= y[j]) #you can only pack this toxic item, if truck j is in toxic mode
                     else:
-                        self.model.Add(x[(i, j)] <= 1 - y[j])
+                        self.model.Add(x[(i, j)] <= 1 - y[j]) # you can only pack this non-toxic item, it truck j is in nontoxic mode
 
 
 
         ##OBJECTIVE FUNCTION##
 
-        # objective is to maximize total values
+        # objective is to maximize total value of packed items in each knapsack
 
         self.model.Maximize(
             sum(self.items[i].value * x[(i,j)] for i in range(len(self.items)) for j in range(len(self.capacities)))
@@ -113,14 +124,18 @@ class MultiKnapsackSolver:
         # TODO: Implement me!
 
         # create list of trucks
-        if status in (OPTIMAL, FEASIBLE):
-            trucks = [[] for _ in range(len(self.capacities))]
-            for i, item in enumerate(self.items):
-                for j in range(len(self.capacities)):
-                    if self.solver.Value(x[(i, j)]) == 1:
-                        trucks[j].append(item)
-                        break
+        if status in (OPTIMAL, FEASIBLE): # check if solver found any solution
+            trucks = [[] for _ in range(len(self.capacities))] # list of empty list for each knapsack
+            for i, item in enumerate(self.items): # Loop over each item by its index and object
+                for j in range(len(self.capacities)): # For each item, check every truck to see where it was assigned
+
+                    if self.solver.Value(x[(i, j)]) == 1: # If the solver chose x[i,j] = 1, that means item i goes into truck j
+
+                        trucks[j].append(item) # Append the item object to the corresponding truck’s list
+
+                        break # dont check other trucks
+
             return Solution(trucks=trucks)
         else:
-            return Solution(trucks=[])# empty solution
+            return Solution(trucks=[])# empty 
 
