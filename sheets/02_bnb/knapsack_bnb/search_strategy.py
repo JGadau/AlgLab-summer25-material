@@ -84,14 +84,35 @@ class SearchStrategy:
         ).relaxed_solution.upper_bound
 
 
-# Default search order: you must supply your own `priority`.
-# This stub returns a constant key.
+
+"""
+def my_search_order(node: BnBNode) -> float:
+    # Prioritize nodes with highest upper bound (negated for min-heap), and shallower depth to break ties
+    return (-node.relaxed_solution.upper_bound, node.depth)
 
 
-def my_search_order(node: BnBNode) -> Any:
-    """
-    Example default: constant priority.
-    """
-    return 0
+
+def my_search_order(node: BnBNode) -> float:
+    # Tie-break with depth to prioritize shallow promising nodes
+    gap = node.relaxed_solution.upper_bound - node.lower_bound
+    return -(node.relaxed_solution.upper_bound - 0.1 * gap)  # encourage narrowing the gap
+
+def my_search_order(node: BnBNode) -> float:
+    # Prioritize highest upper bound, break ties with shallow depth
+    return (-node.relaxed_solution.upper_bound, node.depth * 0.25)
+
+
+def my_search_order(node: BnBNode) -> float:
+    gap = node.relaxed_solution.upper_bound - node.lower_bound
+    return -(node.lower_bound + 0.25 * gap)  # prioritize nodes closer to optimal
+
+""""""
+def my_search_order(node: BnBNode) -> float:
+    ub = node.relaxed_solution.upper_bound
+    return (-ub, node.depth)
+
+"""
+def my_search_order(node: BnBNode) -> Tuple[float, int]:
+    return (-node.relaxed_solution.upper_bound, node.depth)
 
 

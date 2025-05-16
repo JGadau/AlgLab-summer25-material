@@ -32,12 +32,14 @@ class RelaxedSolution:
         instance: Instance,
         selection: Sequence[float],
         upper_bound: float,
+        decisions: Sequence[int | None] = None,  # <- NEW
     ):
         if len(selection) != len(instance.items):
             raise ValueError("`selection` length must match number of items.")
         self.instance = instance
         self.selection = list(selection)
         self.upper_bound = upper_bound
+        self._decisions = decisions  # <- NEW
 
         # Validate consistency: bound must exceed or equal actual value.
         actual = self.value()
@@ -45,6 +47,10 @@ class RelaxedSolution:
             raise ValueError(
                 f"Actual value {actual} exceeds upper_bound {self.upper_bound}."
             )
+
+    @property
+    def decisions(self):
+        return self._decisions
 
     @staticmethod
     def create_infeasible(instance: Instance) -> "RelaxedSolution":
@@ -56,6 +62,7 @@ class RelaxedSolution:
             instance,
             [0.0] * len(instance.items),
             upper_bound=float("-inf"),
+            #decisions=decisions,
         )
 
     def is_infeasible(self) -> bool:
@@ -118,4 +125,5 @@ class RelaxedSolution:
         """
         Return a deep copy of this RelaxedSolution.
         """
-        return RelaxedSolution(self.instance, self.selection.copy(), self.upper_bound)
+        return RelaxedSolution(self.instance, self.selection.copy(), self.upper_bound, decisions=self._decisions.copy() if self._decisions is not None else None,
+)

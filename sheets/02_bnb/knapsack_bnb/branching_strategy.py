@@ -57,8 +57,70 @@ class MyBranchingStrategy(BranchingStrategy):
     from the node's relaxed solution (e.g., fractional values, scores, etc.).
     The simplest strategy is to pick an unfixed variable and split on 0/1.
     """
+   
+    def make_branching_decisions(self, node: BnBNode):
+        # get LP solution and the real Instance
+        relaxed = node.relaxed_solution.selection
+        inst    = node.relaxed_solution.instance
 
+        # all still-undecided item indices
+        undecided = [i for i, d in enumerate(node.branching_decisions) if d is None]
+        if not undecided:
+            return ()
+
+        # pick the most fractional var (min(r,1−r)), tie-break by density
+        most_frac = max(
+            undecided,
+            key=lambda i: (
+                min(relaxed[i], 1 - relaxed[i]),
+                inst.items[i].value / inst.items[i].weight
+            )
+        )
+
+        left, right = node.branching_decisions.split_on(most_frac)
+
+        # enqueue “include” first if LP says ≥0.5, else “exclude” first
+        if relaxed[most_frac] >= 0.5:
+            return (right, left)
+        else:
+            return (left, right)
+
+
+    """
     def make_branching_decisions(self, node: BnBNode) -> Tuple[BranchingDecisions, ...]:
+        relaxed = node.relaxed_solution.selection
+        undecided = [i for i, d in enumerate(node.branching_decisions) if d is None]
+        if not undecided:
+            return ()
+
+        # Focus on fractional variables
+        fractional = [(i, abs(relaxed[i] - 0.5)) for i in undecided if 0.01 < relaxed[i] < 0.99]
+        if fractional:
+            # Pick variable closest to 0.5 and high value-to-weight
+            most_frac = min(fractional, key=lambda x: x[1])[0]
+        else:
+            # fallback: highest value/weight among undecided
+            #most_frac = max(undecided, key=lambda i: node.instance.items[i].value / node.instance.items[i].weight)
+            # In MyBranchingStrategy
+            most_frac = max(undecided,key=lambda i: (min(relaxed[i], 1 - relaxed[i]), instance.items[i].value / instance.items[i].weight))
+
+        return node.branching_decisions.split_on(most_frac)
+    """
+    """
+    def make_branching_decisions(self, node: BnBNode) -> Tuple[BranchingDecisions, ...]:
+        relaxed = node.relaxed_solution
+        values = relaxed.selection
+
+        # Choose the variable closest to 0.5 (most fractional)
+        undecided = [
+            i for i, d in enumerate(node.branching_decisions) if d is None
+        ]
+        if not undecided:
+            return ()
+
+        most_frac = min(undecided, key=lambda i: abs(values[i] - 0.5))
+        return node.branching_decisions.split_on(most_frac)
+    
         # placeholder: branch on the first unfixed variable
         first_unfixed = min(
             (i for i, val in enumerate(node.branching_decisions) if val is None),
@@ -66,6 +128,6 @@ class MyBranchingStrategy(BranchingStrategy):
         )
         if first_unfixed < 0:
             return ()
-        return node.branching_decisions.split_on(first_unfixed)
+        return node.branching_decisions.split_on(first_unfixed)"""
 
 

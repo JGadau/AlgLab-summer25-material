@@ -93,21 +93,38 @@ class NaiveRelaxationSolver(RelaxationSolver):
 
 
 class MyRelaxationSolver(RelaxationSolver):
-    """
-    Your relaxation solver stub.
+    def solve(self, instance: Instance, decisions: BranchingDecisions) -> RelaxedSolution:
+        items = instance.items
+        capacity = instance.capacity
+        selection = [0.0] * len(items)
+        remaining_capacity = capacity
 
-    Implement any relaxation (e.g., fractional knapsack, propagation) to tighten bounds.
-    """
+        for i, decision in enumerate(decisions):
+            if decision == 1:
+                remaining_capacity -= items[i].weight
+                selection[i] = 1.0
+                if remaining_capacity < 0:
+                    return RelaxedSolution.create_infeasible(instance)
+            elif decision == 0:
+                selection[i] = 0.0
 
-    def solve(
-        self, instance: Instance, decisions: BranchingDecisions
-    ) -> RelaxedSolution:
-        # placeholder: behave like NaiveRelaxationSolver
-        used = sum(item.weight for item, x in zip(instance.items, decisions) if x == 1)
-        if used > instance.capacity:
-            return RelaxedSolution.create_infeasible(instance)
-        selection = [0.0 if x == 0 else 1.0 for x in decisions]
-        upper = sum(item.value * sel for item, sel in zip(instance.items, selection))
-        return RelaxedSolution(instance, selection, upper)
+        remaining_items = [(i, items[i]) for i in range(len(items)) if decisions[i] is None]
+        remaining_items.sort(key=lambda x: -x[1].value / x[1].weight)
+
+
+        for i, item in remaining_items:
+            if item.weight <= remaining_capacity:
+                selection[i] = 1.0
+                remaining_capacity -= item.weight
+            elif remaining_capacity > 0:
+                # NEW: Avoid overly optimistic fractional inclusion
+                density= item.value /item.weight
+                if density < 1.332 and remaining_capacity / item.weight < 0.26:
+                    break  # Only skip if both density is low and we're only adding a small fraction
+                selection[i] = remaining_capacity / item.weight
+                break
+            
+        upper_bound = sum(item.value * sel for item, sel in zip(items, selection))
+        return RelaxedSolution(instance, selection, upper_bound)
 
 
