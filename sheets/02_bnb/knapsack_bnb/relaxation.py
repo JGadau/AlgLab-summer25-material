@@ -23,6 +23,7 @@ so that:
 """
 
 import abc
+import math
 
 from .instance import Instance
 from .branching_decisions import BranchingDecisions
@@ -92,39 +93,65 @@ class NaiveRelaxationSolver(RelaxationSolver):
         return RelaxedSolution(instance, selection, upper)
 
 
+#################################
 class MyRelaxationSolver(RelaxationSolver):
     def solve(self, instance: Instance, decisions: BranchingDecisions) -> RelaxedSolution:
+        # items und capacity bekommen
         items = instance.items
         capacity = instance.capacity
+
+        # Liste initialisieren (0.0 ist noch nicht ausgewählt)
         selection = [0.0] * len(items)
+
+        # Anfang ist er leer
         remaining_capacity = capacity
 
+        ### Feste Entscheidungen anwenden
         for i, decision in enumerate(decisions):
+
+             # wenn genommen
             if decision == 1:
-                remaining_capacity -= items[i].weight
+                remaining_capacity -= items[i].weight # Gewicht abzeiehen
                 selection[i] = 1.0
-                if remaining_capacity < 0:
+                if remaining_capacity < 0: # wenn Gewicht überschritten -> ungültig
                     return RelaxedSolution.create_infeasible(instance)
-            elif decision == 0:
+
+             # wenn nicht genommen
+            elif decision == 0: # 
                 selection[i] = 0.0
 
+        # remaining_items (no decision) sortieren
         remaining_items = [(i, items[i]) for i in range(len(items)) if decisions[i] is None]
-        remaining_items.sort(key=lambda x: -x[1].value / x[1].weight)
+        remaining_items.sort(key=lambda x: -x[1].value / x[1].weight) #sortieren nach Wertvollsten pro Gewicht zuerst
 
+        # kleinstes Speichern um zu gucken ob noch kleineres reinpasst
+        if remaining_items:
+            smallest_weight = min(item.weight for _, item in remaining_items)
+        else:
+            smallest_weight = float('inf')
 
+        # Ganzzahlige Items + ggf. Bruchteil hinzufügen
         for i, item in remaining_items:
-            if item.weight <= remaining_capacity:
-                selection[i] = 1.0
-                remaining_capacity -= item.weight
-            elif remaining_capacity > 0:
-                # NEW: Avoid overly optimistic fractional inclusion
-                density= item.value /item.weight
-                if density < 1.332 and remaining_capacity / item.weight < 0.26:
-                    break  # Only skip if both density is low and we're only adding a small fraction
-                selection[i] = remaining_capacity / item.weight
+            if remaining_capacity < smallest_weight:
                 break
-            
+            elif item.weight <= remaining_capacity:
+                selection[i] = 1.0 # einfügen
+                remaining_capacity -= item.weight
+            else:
+                # Teil passt noch rein
+                fraction = remaining_capacity / item.weight
+                # Wert abrunden
+                added_value = math.floor(fraction * item.value)
+                # Bruchteil in die Auswahl
+                fraction = added_value / item.value
+                selection[i] = fraction
+                break
+
+        # berechne den Wert dieser Auswahl (ganzzahlige + evtl. ein fractional Item), und gebe als RelaxedSolution zurück.
+        #  Korrekte Berechnung des upper_bounds aus gesamter Auswahl
         upper_bound = sum(item.value * sel for item, sel in zip(items, selection))
         return RelaxedSolution(instance, selection, upper_bound)
+
+###################################
 
 

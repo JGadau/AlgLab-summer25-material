@@ -4,7 +4,7 @@ from knapsack_bnb import BnBSearch
 from knapsack_bnb.branching_strategy import MyBranchingStrategy
 from knapsack_bnb.heuristics import MyHeuristic
 from knapsack_bnb.instance import Instance, Item
-from knapsack_bnb.relaxation import MyRelaxationSolver
+from knapsack_bnb.relaxation import FractionalRelaxationSolver
 from knapsack_bnb.search_strategy import SearchStrategy, my_search_order
 
 logging.basicConfig(
@@ -31,7 +31,7 @@ def run_trivial_instance():
     # You can easily exchange the various components of the BnBSearch here:
     bnb = BnBSearch(
         instance,
-        relaxation=MyRelaxationSolver(),
+        relaxation=FractionalRelaxationSolver(),
         search_strategy=SearchStrategy(priority=my_search_order),
         branching_strategy=MyBranchingStrategy(),
         heuristics=MyHeuristic(),

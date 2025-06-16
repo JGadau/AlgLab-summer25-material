@@ -32,7 +32,7 @@ class RelaxedSolution:
         instance: Instance,
         selection: Sequence[float],
         upper_bound: float,
-        decisions: Sequence[int | None] = None,  # <- NEW
+        decisions: Sequence[int | None] = None,  #  NEW
     ):
         if len(selection) != len(instance.items):
             raise ValueError("`selection` length must match number of items.")

@@ -55,22 +55,74 @@ class Distances:
 class KCenterDecisionVariant:
     def __init__(self, distances: Distances, k: int) -> None:
         self.distances = distances
+        self.k = k # anzahl der platzierenden Zentren
         logging.info("Initializing KCenterDecisionVariant for k=%d", k)
         # TODO: Implement me!
         # Solution model
-        self._solution: list[NodeId] | None = None
+        # jeder knoten ID bekommt eindeutigen Variable für SAT solver
+        self._var_idx = {v: i + 1 for i, v in enumerate(distances.all_vertices())} # 
+        self._reverse_var_idx = {i: v for v, i in self._var_idx.items()} # #  umgekehrte Zuordnung von SAT-Variable zurück zu Knotennummer
+        self._solver = SATSolver()
+        self._solution = None # Lösung speichern
 
+
+        #self._solution: list[NodeId] | None = None
+### Baue SAT-Formulierung
     def limit_distance(self, limit: float) -> None:
         """Adds constraints to the SAT solver to ensure coverage within the given distance."""
         logging.info("Limiting to distance: %f", limit)
         # TODO: Implement me!
+        from pysat.card import CardEnc, EncType
 
+        # falls vorher schon ein Solver existierte: Lösche ihn
+        self._solver.delete()  # reset SAT solver on each limit update
+        self._solver = SATSolver()
+
+        vars = list(self._var_idx.values()) # liste aller möglichen Zentrum Variablen
+
+        # höchstens k dieser Variablen/zentren dürfen True sein
+        card = CardEnc.atmost(lits=vars, bound=self.k, encoding=EncType.seqcounter)
+        for clause in card.clauses:
+            self._solver.add_clause(clause)
+
+        # Für jeden Knoten im Graph
+        for u in self.distances.all_vertices():
+            # welche Zentren sind innerhalb der erlaubten Entfernung erreichbar
+            reachable_vars = [
+                self._var_idx[v]
+                for v in self.distances.vertices_in_range(u, limit)
+            ]
+            # mindestens eines dieser erreichbaren Zentren muss existieren
+            if reachable_vars:
+                self._solver.add_clause(reachable_vars)
+            else: # falls kein Zentrum erreichbar ist, ist das Problem unlösbar für diese Grenze
+
+                raise ValueError(f"No reachable centers within limit for node {u}")
+
+                #self._solver.add_clause([-1])  # Force unsat
+
+
+### SAT Formulierung lösen
+### Solver prüft, ob die Einschränkungen erfüllbar sind
+##### Falls true: Extrahiere alle positiven Variablen aus dem Modell und wandle sie zurück in Knotennummern.
     def solve(self) -> list[NodeId] | None:
         """Solves the SAT problem and returns the list of selected nodes, if feasible."""
         logging.info("Attempting to solve the SAT formulation")
         # TODO: Implement me!
         logging.info("SAT solver solution: %s", self._solution)
-        return self._solution
+        #return self._solution
+        if self._solver.solve():
+            model = self._solver.get_model() # Liste true und solvable Variablen
+            self._solution = [
+                self._reverse_var_idx[abs(v)]
+                for v in model
+                if v > 0 and abs(v) in self._reverse_var_idx
+            ]
+            return self._solution
+        else:
+            self._solution = None
+            return None
+
 
     def get_solution(self) -> list[NodeId]:
         """Returns the solution if available; raises an error otherwise."""
@@ -79,7 +131,7 @@ class KCenterDecisionVariant:
             raise ValueError(msg)
         return self._solution
 
-
+### Optimale Lösung mit binärer Suche
 class KCentersSolver:
     def __init__(self, graph: nx.Graph) -> None:
         """
@@ -88,10 +140,12 @@ class KCentersSolver:
         """
         self.graph = graph
         # Initialize distances helper
-        self.distances = Distances(self.graph)
+        self.distances = Distances(self.graph) 
         logging.info("KCentersSolver initialized with graph of %d nodes and %d edges", 
                      self.graph.number_of_nodes(), self.graph.number_of_edges())
 
+
+### Greedy ansatz, immer den schlimmsten Knoten abdecken
     def solve_heur(self, k: int) -> list[NodeId]:
         """
         Calculate a heuristic solution to the k-centers problem.
@@ -99,7 +153,21 @@ class KCentersSolver:
         """
         logging.info("Starting heuristic computation for k=%d", k)
         # TODO: Implement me!
-        centers = None
+        #centers = None
+        #logging.info("Heuristic centers selected: %s", centers)
+        #return centers
+        # 
+        all_nodes = list(self.distances.all_vertices())
+        centers = [all_nodes[0]] # beginne mit beliebigen Knoten
+
+        for _ in range(1, k): # Füge k-1 weitere Zentren hinzu
+             # wähle Knoten der am weitesten entfernt ist von zentrum
+            max_dist_node = max(
+                all_nodes,
+                key=lambda u: min(self.distances.dist(u, c) for c in centers)
+            )
+            centers.append(max_dist_node)
+
         logging.info("Heuristic centers selected: %s", centers)
         return centers
 
@@ -108,13 +176,30 @@ class KCentersSolver:
         Calculate the optimal solution to the k-centers problem for the given k.
         Returns the selected centers as a list of node IDs.
         """
-        logging.info("Starting exact solve for k=%d", k)
+        self.k = k
+        dists = self.distances.sorted_distances()
+        lb = 0
+        ub = len(dists) - 1
+
         # Start with a heuristic solution
         centers = self.solve_heur(k)
-        obj = self.distances.max_dist(centers)
-        logging.info("Initial heuristic objective value: %f", obj)
+        best = centers
+        best_val = self.distances.max_dist(best)
 
-        # TODO: Implement me!
-        logging.info("Exact centers computed: %s", centers)
-        logging.info("Final objective value: %f", obj)
-        return centers
+        # binäre Suche über Distanzgrenzen
+        while lb <= ub:
+            mid = (lb + ub) // 2
+            c = dists[mid] # Aktuelle Kandidaten-Distanz
+            decision = KCenterDecisionVariant(self.distances, k)
+            decision.limit_distance(c)
+
+            if decision.solve() is not None: #Versuche kleinere Distanz
+                best = decision.get_solution() 
+                best_val = c
+                ub = mid - 1
+            else:
+                lb = mid + 1 # Versuche größere Distanz
+
+        return best
+
+
