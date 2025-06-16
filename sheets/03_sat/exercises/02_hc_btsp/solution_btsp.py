@@ -10,6 +10,7 @@ from solution_hamiltonian import HamiltonianCycleModel
 # Configure logging to show INFO messages
 logging.basicConfig(level=logging.INFO)
 
+
 class SearchStrategy(Enum):
     """
     Different search strategies for the solver.
@@ -39,8 +40,11 @@ class BottleneckTSPSolver:
         Check the networkx documentation for more information!
         """
         # Log initialization details
-        logging.info("Initializing BottleneckTSPSolver with %d nodes and %d edges...", 
-                     graph.number_of_nodes(), graph.number_of_edges())
+        logging.info(
+            "Initializing BottleneckTSPSolver with %d nodes and %d edges...",
+            graph.number_of_nodes(),
+            graph.number_of_edges(),
+        )
         self.graph = graph
         # TODO: Implement me!
         # Log initialization completion

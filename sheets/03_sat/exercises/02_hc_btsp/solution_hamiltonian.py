@@ -7,11 +7,15 @@ from pysat.solvers import Solver as SATSolver
 # Configure logging to show INFO messages
 logging.basicConfig(level=logging.INFO)
 
+
 class HamiltonianCycleModel:
     def __init__(self, graph: nx.Graph) -> None:
         # Log model initialization details
-        logging.info("Initializing HamiltonianCycleModel with %d nodes and %d edges...", 
-                     graph.number_of_nodes(), graph.number_of_edges())
+        logging.info(
+            "Initializing HamiltonianCycleModel with %d nodes and %d edges...",
+            graph.number_of_nodes(),
+            graph.number_of_edges(),
+        )
         self.graph = graph
         self.solver = SATSolver("Minicard")
         self.assumptions = []
